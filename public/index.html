@@ -48,6 +48,9 @@ button{font-family:inherit}
 .day-title{font-size:clamp(1.4rem,4vw,2rem);font-weight:900;line-height:1.2;cursor:pointer}
 .day-date{font-size:.8rem;color:var(--tm)}
 .day-edit-hint{font-size:.58rem;color:#334155;margin-top:.2rem}
+.today-pill{display:inline-block;margin-left:.5rem;padding:.18rem .55rem;border-radius:50px;font-size:.58rem;font-weight:800;background:var(--g);color:#04110b;text-transform:uppercase;letter-spacing:.1em;vertical-align:middle;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.nav-tab.today{box-shadow:inset 0 0 0 1px var(--g)}
 
 /* TIMELINE */
 .timeline{position:relative;padding-left:1.8rem}
@@ -56,6 +59,9 @@ button{font-family:inherit}
 .tl-dot{position:absolute;left:-1.8rem;top:.25rem;width:12px;height:12px;border-radius:50%;border:2.5px solid var(--bg);z-index:2}
 .tl-card{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:.9rem;cursor:pointer;transition:all .2s}
 .tl-card:hover{border-color:rgba(245,158,11,.25);transform:translateX(3px)}
+.tl-card.flight{background:linear-gradient(135deg,rgba(59,130,246,.13),var(--s));border-color:rgba(59,130,246,.35);border-left:3px solid var(--bl)}
+.tl-card.flight .tl-name{color:#93c5fd}
+.tl-card.flight .tl-time{color:#93c5fd}
 .tl-time{font-size:.7rem;color:var(--a);font-weight:600;margin-bottom:.15rem}
 .tl-name{font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:.35rem;margin-bottom:.15rem}
 .tl-desc{font-size:.78rem;color:var(--tm);line-height:1.45}
@@ -396,6 +402,24 @@ function deleteDay(dayId){
 // ═══════════════════════════════════════════════════════════
 function isFree(p){ return p && (p.toLowerCase().includes("gratis")||p.toLowerCase().includes("incluido")); }
 
+// Escapa texto editable para que <, >, & no rompan el render
+function esc(s){ return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// ¿La actividad es un vuelo? (para resaltarla en la línea de tiempo)
+const FLIGHT_ICONS = ["✈️","🛫","🛬"];
+function isFlight(item){ return FLIGHT_ICONS.includes(item.icon); }
+
+// ¿La fecha del día (ej. "Miércoles 17 de junio") es hoy? Viaje en 2026.
+const MONTHS_ES = {enero:0,febrero:1,marzo:2,abril:3,mayo:4,junio:5,julio:6,agosto:7,septiembre:8,octubre:9,noviembre:10,diciembre:11};
+function isToday(dateStr){
+  const m = String(dateStr||"").toLowerCase().match(/(\d{1,2})\s+de\s+(\w+)/);
+  if(!m) return false;
+  const day = parseInt(m[1],10), mon = MONTHS_ES[m[2]];
+  if(mon==null) return false;
+  const now = new Date();
+  return now.getFullYear()===2026 && now.getMonth()===mon && now.getDate()===day;
+}
+
 function h(tag,attrs,children){
   let s = "<"+tag;
   if(attrs) for(const [k,v] of Object.entries(attrs)){ if(k!=="__html") s += ` ${k}="${String(v).replace(/"/g,"&quot;")}"`; }
@@ -450,11 +474,11 @@ function renderItem(day,item,idx){
 
   return h("div",{class:"tl-item"},[
     h("div",{class:"tl-dot",style:`background:${dotColor}`}),
-    h("div",{class:"tl-card",onclick:`editingItem={dayId:'${day.id}',itemId:'${item.id}'};showIcons=false;render()`},[
-      h("div",{class:"tl-time mono"},item.time),
-      h("div",{class:"tl-name"},item.icon+" "+item.name),
-      h("div",{class:"tl-desc"},item.desc),
-      item.price ? h("div",{class:priceClass},(isFree(item.price)?"✅ ":"💵 ")+item.price) : "",
+    h("div",{class:"tl-card"+(isFlight(item)?" flight":""),onclick:`editingItem={dayId:'${day.id}',itemId:'${item.id}'};showIcons=false;render()`},[
+      h("div",{class:"tl-time mono"},esc(item.time)),
+      h("div",{class:"tl-name"},item.icon+" "+esc(item.name)),
+      h("div",{class:"tl-desc"},esc(item.desc)),
+      item.price ? h("div",{class:priceClass},(isFree(item.price)?"✅ ":"💵 ")+esc(item.price)) : "",
       h("div",{class:"tl-edit-hint"},"Toca para editar")
     ]),
     h("div",{class:"add-between"},[h("button",{onclick:`event.stopPropagation();addItem('${day.id}',${idx})`},"+ Agregar actividad")])
@@ -464,6 +488,7 @@ function renderItem(day,item,idx){
 function renderDay(day,dayIdx){
   const cc = COUNTRY_COLORS[day.country]||"#6366f1";
   const countryName = day.country==="panama"?"Panamá":day.country==="rio"?"Río de Janeiro":day.country==="salida"?"Colombia":"Vuelo";
+  const today = isToday(day.date);
 
   let headerHtml;
   if(editingDay===day.id){
@@ -484,8 +509,8 @@ function renderDay(day,dayIdx){
     ]);
   } else {
     headerHtml = h("div",{onclick:`editingDay='${day.id}';render()`,style:"cursor:pointer"},[
-      h("h2",{class:"day-title pf"},day.title),
-      h("p",{class:"day-date"},day.date+(day.subtitle?" · "+day.subtitle:"")),
+      h("h2",{class:"day-title pf"},esc(day.title)),
+      h("p",{class:"day-date"},esc(day.date)+(day.subtitle?" · "+esc(day.subtitle):"")),
       h("p",{class:"day-edit-hint"},"Toca para editar día")
     ]);
   }
@@ -502,7 +527,8 @@ function renderDay(day,dayIdx){
 
   return h("section",{class:"day-section",id:day.id},[
     h("div",{style:"margin-bottom:1.2rem"},[
-      h("div",{class:"day-badge",style:`background:${cc}22;color:${cc};border:1px solid ${cc}44`},day.flag+" "+countryName),
+      h("div",{class:"day-badge",style:`background:${cc}22;color:${cc};border:1px solid ${cc}44`},day.flag+" "+countryName)
+        + (today ? h("span",{class:"today-pill"},"● Hoy") : ""),
       headerHtml
     ]),
     h("div",{class:"timeline"},timelineItems+emptyAdd),
@@ -515,8 +541,8 @@ function render(){
   const totalItems = days.reduce((a,d)=>a+d.items.length,0);
 
   const navTabs = days.map(d=>
-    h("button",{class:"nav-tab"+(activeDay===d.id?" active":""),onclick:`activeDay='${d.id}';document.getElementById('${d.id}')?.scrollIntoView({behavior:'smooth',block:'start'})`},
-      d.flag+" "+(d.date?.split(" ").slice(0,2).join(" ")||d.id))
+    h("button",{class:"nav-tab"+(activeDay===d.id?" active":"")+(isToday(d.date)?" today":""),onclick:`activeDay='${d.id}';document.getElementById('${d.id}')?.scrollIntoView({behavior:'smooth',block:'start'})`},
+      d.flag+" "+esc(d.date?.split(" ").slice(0,2).join(" ")||d.id))
   ).join("") + h("button",{class:"nav-tab add",onclick:"addDay()"},"+ Día");
 
   const modal = confirmDel ? h("div",{class:"modal-bg",onclick:"confirmDel=null;render()"},[
@@ -603,9 +629,13 @@ window.addEventListener("scroll",()=>{
     });
     activeDay = days[activeIdx]?.id || activeDay;
     // Las pestañas de día van en el mismo orden que `days` (la última es "+ Día")
-    document.querySelectorAll(".nav-tab:not(.add)").forEach((t,i)=>{
-      t.classList.toggle("active", i===activeIdx);
-    });
+    const tabs = document.querySelectorAll(".nav-tab:not(.add)");
+    tabs.forEach((t,i)=> t.classList.toggle("active", i===activeIdx));
+    // Desplazar la barra para que la pestaña activa quede a la vista
+    const inner = document.querySelector(".nav-inner"), tab = tabs[activeIdx];
+    if(inner && tab){
+      inner.scrollTo({left: tab.offsetLeft - inner.clientWidth/2 + tab.clientWidth/2, behavior:"smooth"});
+    }
   },100);
 });
 

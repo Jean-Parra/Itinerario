@@ -1,18 +1,38 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const RENDER_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "data.json");
 
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ─── IN-MEMORY DATA STORE ────────────────────────────────
+// ─── DATA STORE (persistido en disco) ────────────────────
 let itineraryData = null; // se inicializa con los datos del primer cliente
 let version = 0;
+
+// Cargar itinerario guardado al arrancar para que sobreviva reinicios
+try {
+  if (fs.existsSync(DATA_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    itineraryData = saved.data ?? null;
+    version = saved.version ?? 0;
+    console.log(`[DATA] Itinerario cargado desde disco (v${version})`);
+  }
+} catch (e) {
+  console.error("[DATA] No se pudo leer data.json:", e.message);
+}
+
+function persist() {
+  fs.writeFile(DATA_FILE, JSON.stringify({ data: itineraryData, version }), (e) => {
+    if (e) console.error("[DATA] Error guardando data.json:", e.message);
+  });
+}
 
 // ─── SSE: REAL-TIME BROADCAST ────────────────────────────
 const clients = new Set();
@@ -49,6 +69,7 @@ app.get("/api/data", (req, res) => {
 app.put("/api/data", (req, res) => {
   itineraryData = req.body.data;
   version++;
+  persist();
   broadcast({ type: "update", data: itineraryData, version });
   console.log(`[API] Datos actualizados v${version}`);
   res.json({ ok: true, version });
