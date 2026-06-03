@@ -226,8 +226,8 @@ const DEFAULT_DATA = [
     {id:"d6a2",time:"07:15",icon:"🚕",name:"Uber al aeropuerto GIG",desc:"Pedir Uber o 99 al aeropuerto Galeão. Trayecto ~40 minutos. Salir con tiempo por si hay tráfico.",price:"~R$80–120 (~$60k–$90k COP)",type:"transit"},
     {id:"d6a3",time:"08:00",icon:"🛫",name:"Llegada a GIG",desc:"3 horas antes del vuelo. Counter de Copa Airlines. Check-in, despacho equipaje. Migración — sello de SALIDA Brasil 🇧🇷. Pasar seguridad.",price:"",type:"transit"},
     {id:"d6a4",time:"09:00",icon:"🛍",name:"Duty Free + Espera",desc:"Última oportunidad de comprar recuerdos en el duty free de GIG. Cargar celulares. Comprar snacks para el vuelo.",price:"",type:"activity"},
-    {id:"d6b",time:"10:20",icon:"✈️",name:"Vuelo GIG → PTY",desc:"Copa 215. Duración 7h 18m. Llegan a Panamá a las 15:38.",price:"",type:"transit"},
-    {id:"d6b2",time:"15:38",icon:"🕐",name:"Escala en Panamá",desc:"2h 29m de escala. Se quedan en tránsito — NO salen del aeropuerto. Ir a la puerta del siguiente vuelo, comprar algo en el terminal si quieren.",price:"",type:"transit"},
+    {id:"d6b",time:"10:30",icon:"✈️",name:"Vuelo GIG → PTY",desc:"Copa 215. Duración 7h 18m. Llegan a Panamá a las 15:48.",price:"",type:"transit"},
+    {id:"d6b2",time:"15:48",icon:"🕐",name:"Escala en Panamá",desc:"2h 19m de escala. Se quedan en tránsito — NO salen del aeropuerto. Ir a la puerta del siguiente vuelo, comprar algo en el terminal si quieren.",price:"",type:"transit"},
     {id:"d6c",time:"18:07",icon:"✈️",name:"Vuelo PTY → BGA",desc:"Copa 232. Duración 1h 31m. ¡Último vuelo! Llegan a Bucaramanga a las 19:38.",price:"",type:"transit"},
     {id:"d6d",time:"19:38",icon:"🛬",name:"Llegada a Palonegro",desc:"¡De vuelta en casa! Pasar migración colombiana — sello de ENTRADA Colombia 🇨🇴. Recoger equipaje si tienen bodega.",price:"",type:"transit"},
     {id:"d6e",time:"20:00",icon:"🚕",name:"Palonegro → Bucaramanga",desc:"Uber o transporte de vuelta a casa. ~30-35 minutos. Pedirlo mientras esperan equipaje para que llegue rápido.",price:"~$25k–$35k COP",type:"transit"},
@@ -591,20 +591,20 @@ window.addDay = addDay;
 window.deleteDay = deleteDay;
 window.render = render;
 
-// Scroll spy
+// Scroll spy — resalta la pestaña del día visible sin re-renderizar todo
 let spyTimer;
 window.addEventListener("scroll",()=>{
   clearTimeout(spyTimer);
   spyTimer = setTimeout(()=>{
-    for(const d of days){
+    let activeIdx = 0;
+    days.forEach((d,i)=>{
       const el = document.getElementById(d.id);
-      if(el && el.getBoundingClientRect().top <= 100) activeDay = d.id;
-    }
-    document.querySelectorAll(".nav-tab").forEach(t=>{
-      // simple re-highlight without full rerender
-      const txt = t.textContent;
-      const ad = days.find(d=>d.id===activeDay);
-      if(ad && txt.includes(ad.date?.split(" ")[0]||"")) t.classList.add("active");
+      if(el && el.getBoundingClientRect().top <= 100) activeIdx = i;
+    });
+    activeDay = days[activeIdx]?.id || activeDay;
+    // Las pestañas de día van en el mismo orden que `days` (la última es "+ Día")
+    document.querySelectorAll(".nav-tab:not(.add)").forEach((t,i)=>{
+      t.classList.toggle("active", i===activeIdx);
     });
   },100);
 });
